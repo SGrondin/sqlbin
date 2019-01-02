@@ -1,0 +1,18 @@
+CREATE OR REPLACE FUNCTION JSONB_EDIT(obj JSONB, remove TEXT[] = ARRAY[]::TEXT[], merge JSONB = '{}'::JSONB) RETURNS JSONB
+VOLATILE PARALLEL SAFE STRICT
+COST 50
+LANGUAGE sql
+AS $$
+  SELECT COALESCE(JSONB_OBJECT_AGG(K, V), '{}'::JSONB)
+  FROM (
+    (
+      SELECT K, V
+      FROM JSONB_EACH(obj) T(K,V)
+      LEFT JOIN UNNEST(remove) U ON U = T.K
+      WHERE U IS NULL
+    ) UNION ALL (
+      SELECT K, V
+      FROM JSONB_EACH(merge) T(K, V)
+    )
+  ) T(K, V)
+$$;
